@@ -1,21 +1,140 @@
 #include "../inc/cpu.h"
 
+uint8_t rd(uint32_t inst)
+{
+    return (inst & 0xF80) >> 7;
+}
+
+uint8_t rs1(uint32_t inst)
+{
+    return (inst & 0xF8000) >> 15;
+}
+
+uint8_t rs2(uint32_t inst)
+{
+    return (inst & 0x1F00000) >> 20;
+}
+
+
+// *************** ISA FUNCTIONS *****************
+
+// ************ R_TYPE_FUNCTIONS ***************
 void cpu_add(uint32_t inst, cpu_t* cpu)
 {
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] + cpu->regs[rs2(inst)];
+}
 
-
+void cpu_sub(uint32_t inst, cpu_t* cpu)
+{
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] - cpu->regs[rs2(inst)];
 }
 
 
+/* ************ I_TYPE_FUNCTIONS *************** */
 void cpu_addi(uint32_t inst, cpu_t* cpu)
 {
-    uint8_t rd_index = (inst & 0xF80) >> 7;
-    uint8_t rs1_index = (inst & 0xF8000) >> 15;
     uint32_t imm = (inst & 0xFFF00000) >> 20;
     
-    cpu->bus.dram.mem[rd_index] = cpu->bus.dram.mem[rs1_index] + (int32_t) imm;
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] + (int32_t) imm;
+}
+
+void cpu_slti(uint32_t inst, cpu_t* cpu)
+{
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    if (cpu->regs[rs1(inst)] < (int32_t) imm)
+        cpu->regs[rd(inst)] = 1;
+    else 
+        cpu->regs[rd(inst)] = 0;
+}
+
+void cpu_sltiu(uint32_t inst, cpu_t* cpu)
+{
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    if (cpu->regs[rs1(inst)] < imm)
+        cpu->regs[rd(inst)] = 1;
+    else 
+        cpu->regs[rd(inst)] = 0;
+}
+
+void cpu_xori(uint32_t inst, cpu_t* cpu)
+{
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] ^ (int32_t)imm;
+}
+
+void cpu_ori(uint32_t inst, cpu_t* cpu)
+{
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] | (int32_t)imm;
+}
+
+void cpu_andi(uint32_t inst, cpu_t* cpu)
+{
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] & (int32_t)imm;
+}
+
+void cpu_slli(uint32_t inst, cpu_t* cpu)
+{
+    uint8_t shamt = (inst & 0x1F00000) >> 20;
+
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] << shamt;
 
 }
+
+void cpu_srli(uint32_t inst, cpu_t* cpu)
+{
+    uint8_t shamt = (inst & 0x1F00000) >> 20;
+
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] >> shamt;
+
+}
+
+void cpu_srai(uint32_t inst, cpu_t* cpu)
+{
+    uint8_t shamt = (inst & 0x1F00000) >> 20;
+
+    cpu->regs[rd(inst)] = (int32_t)cpu->regs[rs1(inst)] >> shamt;
+
+}
+
+/* ******** BRANCH FUNCTIONS ********** */
+void cpu_lui(uint32_t inst, cpu_t* cpu)
+{
+    uint32_t imm = (inst & 0xFFFFF000) >> 12;
+
+    cpu->regs[rd(inst)] = imm << 12;
+}
+
+void cpu_auipc(uint32_t inst, cpu_t* cpu)
+{
+    uint32_t imm = (inst & 0xFFFFF000) >> 12;
+
+    cpu->regs[rd(inst)] = cpu->PC + imm << 12;
+
+}
+
+
+/* ******** JUMP FUNCTIONS ********* */
+void cpu_jal(uint32_t inst, cpu_t* cpu)
+{
+
+    //parse JAL imm[20|10:1|11|19:12] <==> inst[31|30:21|20|19:12] the LSB is implied
+    uint32_t imm = ( (inst & 0x80000000) >> 11 ) | ( (inst & 0x7FE00000) >>  20) | ( (inst & 0x00100000) >> 9) | ( (inst & 0x000FF000));
+
+    //save next inst in pc in rd reg
+    cpu->regs[rd(inst)] = cpu->PC;
+
+    //set PC to current + offset (imm)
+    cpu->PC = cpu->regs[rs1(inst)] + (int32_t)imm - 4;
+
+}
+
 
 
 void decode_i_type(uint32_t inst, cpu_t* cpu)
@@ -28,7 +147,35 @@ void decode_i_type(uint32_t inst, cpu_t* cpu)
 
         case ADDI:
             cpu_addi(inst, cpu);
+            break;
+        case SLTI:
+            cpu_slti(inst, cpu);
+            break;
+        case SLTIU:
+            cpu_sltiu(inst, cpu);
+            break;
+        case XORI:
+            cpu_xori(inst, cpu);
+            break;
+        case ORI:
+            cpu_ori(inst, cpu);
+            break;
+        case ANDI:
+            cpu_andi(inst, cpu);
+            break;
+        case SLLI:
+            cpu_slli(inst, cpu);
+            break;
+        case SRLI_OR_SRAI:
 
+            //parse func7 [31:25]
+            uint16_t func7 = (inst & 0xFE000000) >> 25;
+
+            if (func7 == 0)
+                cpu_srli(inst, cpu);
+            else 
+                cpu_srai(inst, cpu);
+            
             break;
     }
 
@@ -48,7 +195,7 @@ void decode_r_type(uint32_t inst, cpu_t* cpu)
             if (func7 == 0)
                 cpu_add(inst, cpu);
             else
-                cpu_sub();
+                cpu_sub(inst, cpu);
             break;
         
         case SLL:
@@ -73,6 +220,12 @@ void decode_inst(uint32_t inst, cpu_t* cpu)
             break;
         case I_TYPE_OP:
             decode_i_type(inst, cpu);
+            break;
+        case LUI_TYPE_OP:
+            cpu_lui(inst, cpu);
+            break;
+        case AUIPC_TYPE_OP:
+            cpu_auipc(inst, cpu);
             break;
 
     }
