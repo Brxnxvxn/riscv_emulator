@@ -131,11 +131,148 @@ void cpu_jal(uint32_t inst, cpu_t* cpu)
     cpu->regs[rd(inst)] = cpu->PC;
 
     //set PC to current + offset (imm)
-    cpu->PC = cpu->regs[rs1(inst)] + (int32_t)imm - 4;
+    cpu->PC = cpu->PC +  (int32_t)imm - 4;
+
+    //may need to add check for address misalignment
 
 }
 
+void cpu_jalr(uint32_t inst, cpu_t* cpu)
+{
 
+    //parse JALR IMM
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    //save next inst in pc in rd reg
+    cpu->regs[rd(inst)] = cpu->PC;
+
+    //set PC to rs1 + offset (imm)
+    cpu->PC = cpu->regs[rs1(inst)] + (int32_t)imm;
+
+    //may need to add check for address misalignment
+
+}
+
+/* -------- Load Functions ---------   */
+void cpu_lw(uint32_t inst, cpu_t* cpu) 
+{
+    //parse imm
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    //load word into register
+    cpu->regs[rd(inst)] = bus_load(&(cpu->bus), cpu->regs[rs1(inst)] + (int32_t)imm,  4);
+}
+
+void cpu_lb(uint32_t inst, cpu_t* cpu)
+{
+    //parse imm
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    //load byte into register
+    cpu->regs[rd(inst)] = bus_load(&(cpu->bus), cpu->regs[rs1(inst)] + (int32_t)imm,  1);
+}
+
+void cpu_lbu(uint32_t inst, cpu_t* cpu)
+{
+    //parse imm
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    //load byte unsigned into register
+    cpu->regs[rd(inst)] = bus_load(&(cpu->bus), cpu->regs[rs1(inst)] + imm,  1);
+}
+
+void cpu_lh(uint32_t inst, cpu_t* cpu)
+{
+    //parse imm
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    //load half-word into register
+    cpu->regs[rd(inst)] = bus_load(&(cpu->bus), cpu->regs[rs1(inst)] + (int32_t)imm,  2);
+}
+
+void cpu_lhu(uint32_t inst, cpu_t* cpu)
+{
+    //parse imm
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    //load half-word unsigned into register
+    cpu->regs[rd(inst)] = bus_load(&(cpu->bus), cpu->regs[rs1(inst)] + imm,  2);
+}
+
+/* -------- Store Functions ---------   */
+void cpu_sw(uint32_t inst, cpu_t* cpu)
+{
+    //parse imm
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    //store word into memory
+    bus_store(&(cpu->bus), cpu->regs[rs1(inst)] + imm, 4, cpu->regs[rs2(inst)]);
+}
+
+void cpu_sh(uint32_t inst, cpu_t* cpu)
+{
+    //parse imm
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    //store half-word into memory
+    bus_store(&(cpu->bus), cpu->regs[rs1(inst)] + imm, 2, cpu->regs[rs2(inst)]);
+}
+
+void cpu_sb(uint32_t inst, cpu_t* cpu)
+{
+    //parse imm
+    uint32_t imm = (inst & 0xFFF00000) >> 20;
+
+    //store byte into memory
+    bus_store(&(cpu->bus), cpu->regs[rs1(inst)] + imm, 1, cpu->regs[rs2(inst)]);
+}
+
+
+void decode_s_type(uint32_t inst, cpu_t* cpu)
+{
+    //parse func3 [14:12]
+    uint8_t func3 = (inst & 0x7000) >> 12;
+
+    switch(func3) {
+        
+        case SW:
+            cpu_sw(inst, cpu);
+            break;
+        case SB:
+            cpu_sb(inst, cpu);
+            break;
+        case SH:
+            cpu_sh(inst, cpu);
+            break;
+            
+    }
+
+}
+
+void decode_l_type(uint32_t inst, cpu_t* cpu)
+{
+    //parse func3 [14:12]
+    uint8_t func3 = (inst & 0x7000) >> 12;
+
+    switch(func3) {
+
+        case LB:
+            cpu_lb(inst, cpu);
+            break;
+        case LW:
+            cpu_lw(inst, cpu);
+            break;
+        case LH:
+            cpu_lh(inst, cpu);
+            break;
+        case LBU:
+            cpu_lbu(inst, cpu);
+            break;
+        case LHU:
+            cpu_lhu(inst, cpu);
+            break;
+    }
+}
 
 void decode_i_type(uint32_t inst, cpu_t* cpu)
 {
@@ -226,6 +363,12 @@ void decode_inst(uint32_t inst, cpu_t* cpu)
             break;
         case AUIPC_TYPE_OP:
             cpu_auipc(inst, cpu);
+            break;
+        case JAL_TYPE_OP:
+            cpu_jal(inst, cpu);
+            break;
+        case JALR_TYPE_OP:
+            cpu_jalr(inst, cpu);
             break;
 
     }

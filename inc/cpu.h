@@ -40,6 +40,19 @@ enum r_type_op {
     AND           = 7,
 };
 
+enum l_type_op {
+    LB        = 0,
+    LH        = 1, 
+    LW        = 2,
+    LBU       = 4,
+    LHU       = 5,
+};
+
+enum s_type_op {
+    SB     = 0, 
+    SH     = 1, 
+    SW     = 2,
+};
 
 uint32_t fetch(cpu_t* cpu);
 void execute(cpu_t* cpu, uint32_t inst);
