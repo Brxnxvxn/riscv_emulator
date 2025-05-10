@@ -29,6 +29,51 @@ void cpu_sub(uint32_t inst, cpu_t* cpu)
     cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] - cpu->regs[rs2(inst)];
 }
 
+void cpu_sll(uint32_t inst, cpu_t* cpu)
+{
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] << cpu->regs[rs2(inst)];
+}
+
+void cpu_slt(uint32_t inst, cpu_t* cpu)
+{
+    if (cpu->regs[rs1(inst)] < (int32_t)cpu->regs[rs2(inst)])
+        cpu->regs[rd(inst)] = 1;
+    else
+        cpu->regs[rd(inst)] = 0;
+}
+
+void cpu_sltu(uint32_t inst, cpu_t* cpu)
+{
+    if (cpu->regs[rs1(inst)] < cpu->regs[rs2(inst)])
+        cpu->regs[rd(inst)] = 1;
+    else
+        cpu->regs[rd(inst)] = 0;
+}
+
+void cpu_xor(uint32_t inst, cpu_t* cpu)
+{
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] ^ cpu->regs[rs2(inst)];
+}
+
+void cpu_srl(uint32_t inst, cpu_t* cpu)
+{
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] >> cpu->regs[rs2(inst)];
+}
+
+void cpu_sra(uint32_t inst, cpu_t* cpu)
+{
+    cpu->regs[rd(inst)] = (int32_t)cpu->regs[rs1(inst)] >> cpu->regs[rs2(inst)];
+}
+
+void cpu_and(uint32_t inst, cpu_t* cpu)
+{
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] & cpu->regs[rs2(inst)];
+}
+
+void cpu_or(uint32_t inst, cpu_t* cpu)
+{
+    cpu->regs[rd(inst)] = cpu->regs[rs1(inst)] | cpu->regs[rs2(inst)];
+}
 
 /* ************ I_TYPE_FUNCTIONS *************** */
 void cpu_addi(uint32_t inst, cpu_t* cpu)
@@ -336,13 +381,36 @@ void decode_r_type(uint32_t inst, cpu_t* cpu)
             break;
         
         case SLL:
-            cpu_sll();
+            cpu_sll(inst, cpu);
+        
+        case SLT:
+            cpu_slt(inst, cpu);
+        
+        case SLTU:
+            cpu_sltu(inst, cpu);
+        
+        case XOR:
+            cpu_xor(inst, cpu);
+        
+        case SRL_OR_SRA:
+            //parse func7 [31:25]
+            uint16_t func7 = (inst & 0xFE000000) >> 25;
+
+            if (func7 == 0)
+                cpu_srl(inst, cpu);
+            else
+                cpu_sra(inst, cpu);
+            break;
+        
+        case AND:
+            cpu_and(inst, cpu);
+            break;
+        
+        case OR:
+            cpu_or(inst, cpu);
+            break;
 
     }
-
-
-    if (func3 == 0)
-        cpu_add(inst);
 }
 
 
